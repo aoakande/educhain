@@ -52,8 +52,8 @@
     )
     (asserts! (> (len name) u0) err-invalid-input)
     (asserts! (is-none (get-institution-id tx-sender)) err-unauthorized)
-    (map-set institutions { institution-id: new-id } { name: name, address: tx-sender })
-    (map-set address-to-institution-id tx-sender new-id)
+    (try! (map-set institutions { institution-id: new-id } { name: name, address: tx-sender }))
+    (try! (map-set address-to-institution-id tx-sender new-id))
     (var-set next-institution-id (+ new-id u1))
     (ok new-id)
   )
@@ -68,7 +68,7 @@
     )
     (asserts! (> (len name) u0) err-invalid-input)
     (asserts! (> price u0) err-invalid-input)
-    (map-set courses { course-id: new-id } { name: name, institution-id: institution-id, price: price })
+    (try! (map-set courses { course-id: new-id } { name: name, institution-id: institution-id, price: price }))
     (var-set next-course-id (+ new-id u1))
     (ok new-id)
   )
@@ -81,10 +81,10 @@
       (course (unwrap! (map-get? courses { course-id: course-id }) err-not-found))
       (institution-address (unwrap! (get-institution-address (get institution-id course)) err-not-found))
     )
-    ;; Check if the student is not already enrolled
     (asserts! (is-none (map-get? enrollments { student: tx-sender, course-id: course-id })) err-unauthorized)
     (try! (stx-transfer? (get price course) tx-sender institution-address))
-    (ok (map-set enrollments { student: tx-sender, course-id: course-id } { completed: false }))
+    (try! (map-set enrollments { student: tx-sender, course-id: course-id } { completed: false }))
+    (ok true)
   )
 )
 
@@ -94,11 +94,10 @@
     (
       (enrollment (unwrap! (map-get? enrollments { student: tx-sender, course-id: course-id }) err-not-found))
     )
-    ;; Check if the course exists
     (asserts! (is-some (map-get? courses { course-id: course-id })) err-not-found)
-    ;; Check if the course hasn't been completed yet
     (asserts! (not (get completed enrollment)) err-already-completed)
-    (ok (map-set enrollments { student: tx-sender, course-id: course-id } { completed: true }))
+    (try! (map-set enrollments { student: tx-sender, course-id: course-id } { completed: true }))
+    (ok true)
   )
 )
 
@@ -111,14 +110,12 @@
       (institution-id (unwrap! (get-institution-id tx-sender) err-unauthorized))
       (new-id (var-get next-credential-id))
     )
-    ;; Check if the course has been completed
     (asserts! (get completed enrollment) err-unauthorized)
-    ;; Check if the issuer is the institution that owns the course
     (asserts! (is-eq (get institution-id course) institution-id) err-unauthorized)
-    (map-set credentials 
+    (try! (map-set credentials 
       { credential-id: new-id } 
       { student: student, course-id: course-id, institution-id: institution-id, issued-at: block-height }
-    )
+    ))
     (var-set next-credential-id (+ new-id u1))
     (ok new-id)
   )
@@ -129,9 +126,9 @@
   (begin
     (asserts! (is-eq tx-sender contract-owner) err-owner-only)
     (asserts! (> amount u0) err-invalid-input)
-    ;; Check if the recipient is a valid institution
     (asserts! (is-some (get-institution-id recipient)) err-unauthorized)
-    (ft-mint? edutoken amount recipient)
+    (try! (ft-mint? edutoken amount recipient))
+    (ok true)
   )
 )
 
