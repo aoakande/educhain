@@ -42,6 +42,15 @@
 (define-data-var next-course-id uint u1)
 (define-data-var next-credential-id uint u1)
 
+;; Helper functions
+(define-private (is-valid-course-id (course-id uint))
+  (is-some (map-get? courses { course-id: course-id }))
+)
+
+(define-private (is-valid-enrollment (student principal) (course-id uint))
+  (is-some (map-get? enrollments { student: student, course-id: course-id }))
+)
+
 ;; Functions
 
 ;; Register an educational institution
@@ -81,6 +90,7 @@
       (course (unwrap! (map-get? courses { course-id: course-id }) err-not-found))
       (institution-address (unwrap! (get-institution-address (get institution-id course)) err-not-found))
     )
+    (asserts! (is-valid-course-id course-id) err-not-found)
     (asserts! (is-none (map-get? enrollments { student: tx-sender, course-id: course-id })) err-unauthorized)
     (try! (stx-transfer? (get price course) tx-sender institution-address))
     (map-set enrollments { student: tx-sender, course-id: course-id } { completed: false })
@@ -94,7 +104,7 @@
     (
       (enrollment (unwrap! (map-get? enrollments { student: tx-sender, course-id: course-id }) err-not-found))
     )
-    (asserts! (is-some (map-get? courses { course-id: course-id })) err-not-found)
+    (asserts! (is-valid-course-id course-id) err-not-found)
     (asserts! (not (get completed enrollment)) err-already-completed)
     (map-set enrollments { student: tx-sender, course-id: course-id } { completed: true })
     (ok true)
@@ -110,6 +120,8 @@
       (institution-id (unwrap! (get-institution-id tx-sender) err-unauthorized))
       (new-id (var-get next-credential-id))
     )
+    (asserts! (is-valid-course-id course-id) err-not-found)
+    (asserts! (is-valid-enrollment student course-id) err-not-found)
     (asserts! (get completed enrollment) err-unauthorized)
     (asserts! (is-eq (get institution-id course) institution-id) err-unauthorized)
     (map-set credentials 
