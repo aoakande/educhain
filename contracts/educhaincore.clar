@@ -94,6 +94,8 @@
     (
       (enrollment (unwrap! (map-get? enrollments { student: tx-sender, course-id: course-id }) err-not-found))
     )
+    ;; Check if the course exists
+    (asserts! (is-some (map-get? courses { course-id: course-id })) err-not-found)
     ;; Check if the course hasn't been completed yet
     (asserts! (not (get completed enrollment)) err-already-completed)
     (ok (map-set enrollments { student: tx-sender, course-id: course-id } { completed: true }))
@@ -127,7 +129,7 @@
   (begin
     (asserts! (is-eq tx-sender contract-owner) err-owner-only)
     (asserts! (> amount u0) err-invalid-input)
-    ;; Check if the recipient is a valid principal
+    ;; Check if the recipient is a valid institution
     (asserts! (is-some (get-institution-id recipient)) err-unauthorized)
     (ft-mint? edutoken amount recipient)
   )
